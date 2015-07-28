@@ -109,20 +109,22 @@ typedef struct
 //  SD_CID SD_cid;
   uint32_t CardCapacity;  			/*!< Card Capacity */
   uint32_t CardBlockSize; 			/*!< Card Block Size */
-  uint16_t RCA;
+  uint32_t RCA;
   SD_VERSION sd_version;
 } _SD_CardInfo;
 
 /*-------------------------------------#define----------------------------------*/
 #define SD_CHECK_POWER_UP				((uint32_t)0x80000000)			/*ACMD41 response check*/
 #define SD_CHECK_CCS					((uint32_t)0x40000000)			/*ACMD41 response check*/
-/*-------------------------------sd card cmd----------------------------*/
+/*-----------------------------------sd card cmd--------------------------------*/
 #define CMD0															/* GO_IDLE_STATE */
 #define CMD1															/* SEND_OP_COND (MMC) */
+#define CMD2															/* ALL_SEND_CID */
+#define CMD3															/* SEND_RELATIVE_ADDR */
 #define CMD8															/* SEND_IF_COND */
 #define CMD55
 #define CMD41
-/*-------------------------------sd card argument----------------------------*/
+/*---------------------------------sd card argument-----------------------------*/
 #define SD_CHECK_PATTERN				((uint32_t)0x000001AA)			/*user define CMD8 argument*/
 #define SD_VOLTAGE_WINDOW				((uint32_t)0x40100000)			/*user define ACMD41 argument*/
 

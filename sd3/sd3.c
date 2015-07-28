@@ -1,5 +1,10 @@
  #include "sd3.h"
  
+ /*-------------------------------public variable--------------------------------------*/
+ _SD_CardInfo 	SD_CardInfo;
+static 	u32		res_long_temp[4];
+ /*------------------------------------------------------------------------------------*/
+
  /*
   * 
   */
@@ -95,13 +100,22 @@ SD_Error sd_get_resp7(u32 * res7)
 }
 
 /*---------------------------------------------------------------------------*/
+/*
+ * the struct SD_CardInfo initialization
+ */
+void sd_info_init(_SD_CardInfo * pSD_CardInfo)
+{
+	
+}
 
 SD_Error sdio_handware_init(void)
 {
 	/*初始化SDIO的引脚、时钟、DMA等硬件*/
+	
+	/*!< SDIO_CK for initialization should not exceed 400 KHz */
 }
 
-SD_Error sd_check_card_version(_SD_CardInfo * SD_CardInfo)
+SD_Error sd_check_card_version(_SD_CardInfo * pSD_CardInfo)
 {
 	SD_Error errorstatus;
 	u32 res_short_temp;															/*short response temp*/
@@ -115,12 +129,12 @@ SD_Error sd_check_card_version(_SD_CardInfo * SD_CardInfo)
 	errorstatus=sd_get_resp7(&res_short_temp);
 	if (errorstatus == SD_OK)													/*有响应则card遵循sd协议2.0版本*/
 	{
-		if(res_short_temp==SD_CHECK_PATTERN) SD_CardInfo->sd_version=SD_20_SC;	/*默认为SD_20_SC，之后进一步检测*/
+		if(res_short_temp==SD_CHECK_PATTERN) pSD_CardInfo->sd_version=SD_20_SC;	/*默认为SD_20_SC，之后进一步检测*/
 		else return SD_INVALID_VOLTRANGE;										/*不支持当前电压范围*/
 	}
 	else																		/*无响应，说明是1.x的或mmc的卡*/
 	{
-		SD_CardInfo->sd_version=SD_10;											/*默认为SD_10，之后进一步检测*/
+		pSD_CardInfo->sd_version=SD_10;											/*默认为SD_10，之后进一步检测*/
 	}
 	
 	/*The RCA to be used for CMD55 in idle_state shall be the card’s default RCA = 0x0000*/
@@ -129,7 +143,7 @@ SD_Error sd_check_card_version(_SD_CardInfo * SD_CardInfo)
 	errorstatus=sd_get_resp1(&res_short_temp);
 	if(errorstatus!=SD_OK) 
 	{
-		SD_CardInfo->sd_version=MMC;											/*此句是瞎编的*/
+		pSD_CardInfo->sd_version=MMC;											/*此句是瞎编的，本lib不支持MMC*/
 		return errorstatus;
 	}
 	
@@ -140,7 +154,7 @@ SD_Error sd_check_card_version(_SD_CardInfo * SD_CardInfo)
 		errorstatus=sd_get_resp1(&res_short_temp);
 		if(errorstatus!=SD_OK) 
 		{
-			SD_CardInfo->sd_version=MMC;
+			pSD_CardInfo->sd_version=MMC;										/*此句是瞎编的，本lib不支持MMC*/
 			return errorstatus;
 		}
 		
@@ -159,19 +173,75 @@ SD_Error sd_check_card_version(_SD_CardInfo * SD_CardInfo)
 		return SD_UNUSABLE_CARD;												/*the card no response or invalid voltrange*/
 	}
 	
-	if(SD_CardInfo->sd_version==SD_10) return SD_OK;							/*the card is SD V1.X*/
+	if(pSD_CardInfo->sd_version==SD_10) return SD_OK;							/*the card is SD V1.X*/
 	
-	if(res_short_temp & SD_CHECK_CCS) SD_CardInfo->sd_version=SD_20_HC;			/*CCS=1 sd card is High Capacity*/
-	else SD_CardInfo->sd_version=SD_20_SC;
+	if(res_short_temp & SD_CHECK_CCS) pSD_CardInfo->sd_version=SD_20_HC;		/*CCS=1 sd card is High Capacity*/
+	else pSD_CardInfo->sd_version=SD_20_SC;
+	return SD_OK;
 }
 
+SD_Error sd_get_cid(u32 * cid)
+{
+	SD_Error errorstatus;
+	
+	errorstatus=sd_send_cmd(CMD2,0X00,RESP2);
+	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd2 send success*/
+	errorstatus=sd_get_resp2(cid);
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	return SD_OK;
+}
 
+SD_Error sd_get_rca(u32 * rca)
+{
+	SD_Error errorstatus;
+	
+	errorstatus=sd_send_cmd(CMD3,0X00,RESP6);
+	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd2 send success*/
+	errorstatus=sd_get_resp6(rca);												/*返回值包括RCA和card status*/
+	if(errorstatus!=SD_OK) return errorstatus;
+	/*-----------check the card status----------*/
+	
+	
+	*rca >>= 16;																/*保留RCA*/
+	return SD_OK;
+}
 /*
  * 
  */
 SD_Error sd_init(void)
 {
+	SD_Error errorstatus;
 	
+	sd_info_init(&SD_CardInfo);													/*init sd card infomation default*/
+	
+	errorstatus=sdio_handware_init();											/*init hardware*/
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	errorstatus=sd_check_card_version(&SD_CardInfo);							/*check sd card voltrange,and check sd card type*/
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	 /*!< Send CMD2 to get CID ,and the card will be in Identification State. */
+	if(SD_CardInfo.sd_version==SD_20_HC || SD_CardInfo.sd_version==SD_20_SC || SD_CardInfo.sd_version==SD_10)
+	{
+		errorstatus=sd_get_cid(&res_long_temp);
+		if(errorstatus!=SD_OK) return errorstatus;
+	}
+	
+	/*send CMD3 to get a new RCA,and card state changes to the Stand-by State */
+	if(SD_CardInfo.sd_version==SD_20_HC || SD_CardInfo.sd_version==SD_20_SC || SD_CardInfo.sd_version==SD_10)
+	{
+		errorstatus=sd_get_rca(&SD_CardInfo.RCA);
+		if(errorstatus!=SD_OK) return errorstatus;
+	}
+	
+	/*get CSD*/
+	
+	/*send CMD7,CMD7 is used to select one card and put it into the Transfer State*/
+	
+	/*上电识别，卡初始化都完成后，进入数据传输模式，提高读写速度,并开启4bits模式*/
+	
+	errorstatus
 }
 
 
