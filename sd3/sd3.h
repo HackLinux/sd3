@@ -121,9 +121,13 @@ typedef struct
 #define CMD1															/* SEND_OP_COND (MMC) */
 #define CMD2															/* ALL_SEND_CID */
 #define CMD3															/* SEND_RELATIVE_ADDR */
+#define CMD6
+#define CMD7
 #define CMD8															/* SEND_IF_COND */
-#define CMD55
+#define CMD9
 #define CMD41
+#define CMD55
+
 /*---------------------------------sd card argument-----------------------------*/
 #define SD_CHECK_PATTERN				((uint32_t)0x000001AA)			/*user define CMD8 argument*/
 #define SD_VOLTAGE_WINDOW				((uint32_t)0x40100000)			/*user define ACMD41 argument*/
@@ -137,7 +141,13 @@ typedef struct
 #define RESP6
 #define RESP7
 
+/*------------------------------------sdio bus width----------------------------*/
+#define SDIO_BUS_1BIT					((uint32_t)0x00000000)			/*1-bit data transfer (sd card default)*/
+#define SDIO_BUS_4BIT					((uint32_t)0x00000002)			/*4-bit data transfer*/
 
+/*------------------------------------sdio config-------------------------------*/
+#define SET_SDIO_BUS_WIDTH_1BIT			do{/*set sdio bus-width to 1bit*/}while(0)
+#define SET_SDIO_BUS_WIDTH_4BIT			do{/*set sdio bus-width to 4bit*/}while(0)
 
 
 /*-------------------------------public functions--------------------------------*/

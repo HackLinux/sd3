@@ -1,8 +1,8 @@
  #include "sd3.h"
  
  /*-------------------------------public variable--------------------------------------*/
- _SD_CardInfo 	SD_CardInfo;
-static 	u32		res_long_temp[4];
+_SD_CardInfo	SD_CardInfo;
+static 	u32		csdtemp[4],cidtemp[4];
  /*------------------------------------------------------------------------------------*/
 
  /*
@@ -115,6 +115,33 @@ SD_Error sdio_handware_init(void)
 	/*!< SDIO_CK for initialization should not exceed 400 KHz */
 }
 
+/* @arg rca: the card RCA
+ * @arg SDIO_BUS_4BIT: 4-bit data transfer
+ * @arg SDIO_BUS_1BIT: 1-bit data transfer (sd card default)
+ */
+SD_Error sdio_bus_width(u32 rca,u32 bus_width)
+{
+	SD_Error errorstatus;
+	u32 res_short_temp;
+	
+	/*send ACMD6 set the card's bus width*/
+	errorstatus=sd_send_cmd(CMD55,(u32)(rca<<16),RESP1);
+	if(errorstatus!=SD_OK) return errorstatus;								/*check cmd55 send success*/
+	errorstatus=sd_get_resp1(&res_short_temp);
+	if(errorstatus!=SD_OK) return errorstatus;
+
+	errorstatus=sd_send_cmd(CMD6,bus_width,RESP1);
+	if(errorstatus!=SD_OK) return errorstatus;								/*check cmd6 send success*/
+	errorstatus=sd_get_resp1(&res_short_temp);
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	/*config sdio of the mcu*/
+	if(bus_width==SDIO_BUS_4BIT) SET_SDIO_BUS_WIDTH_4BIT;
+	if(bus_width==SDIO_BUS_1BIT) SET_SDIO_BUS_WIDTH_1BIT;
+	
+	return SD_OK;
+}
+
 SD_Error sd_check_card_version(_SD_CardInfo * pSD_CardInfo)
 {
 	SD_Error errorstatus;
@@ -165,7 +192,7 @@ SD_Error sd_check_card_version(_SD_CardInfo * pSD_CardInfo)
 		{
 			if(res_short_temp & SD_CHECK_POWER_UP) break;						/*check sd card power up status =1*/
 		}
-		/*no response for ACMD41,or no power up,continue */
+																				/*no response for ACMD41,or no power up,continue */
 	}
 	
 	if(wait_cnt==0)																/*time over*/
@@ -197,13 +224,38 @@ SD_Error sd_get_rca(u32 * rca)
 	SD_Error errorstatus;
 	
 	errorstatus=sd_send_cmd(CMD3,0X00,RESP6);
-	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd2 send success*/
+	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd3 send success*/
 	errorstatus=sd_get_resp6(rca);												/*返回值包括RCA和card status*/
 	if(errorstatus!=SD_OK) return errorstatus;
 	/*-----------check the card status----------*/
 	
 	
 	*rca >>= 16;																/*保留RCA*/
+	return SD_OK;
+}
+
+SD_Error sd_get_csd(u32 rcd,u32 * csd)
+{
+	SD_Error errorstatus;
+	
+	errorstatus=sd_send_cmd(CMD9,(u32)(rcd<<16),RESP2);
+	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd9 send success*/
+	errorstatus=sd_get_resp2(csd);
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	return SD_OK;
+}
+
+SD_Error sd_select_card(u32 rca)
+{
+	SD_Error errorstatus;
+	u32 res_short_temp;
+	
+	errorstatus=sd_send_cmd(CMD7,(u32)(rcd<<16),RESP1b);
+	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd7 send success*/
+	errorstatus=sd_get_resp1b(&res_short_temp);
+	if(errorstatus!=SD_OK) return errorstatus;
+	
 	return SD_OK;
 }
 /*
@@ -221,27 +273,32 @@ SD_Error sd_init(void)
 	errorstatus=sd_check_card_version(&SD_CardInfo);							/*check sd card voltrange,and check sd card type*/
 	if(errorstatus!=SD_OK) return errorstatus;
 	
-	 /*!< Send CMD2 to get CID ,and the card will be in Identification State. */
-	if(SD_CardInfo.sd_version==SD_20_HC || SD_CardInfo.sd_version==SD_20_SC || SD_CardInfo.sd_version==SD_10)
-	{
-		errorstatus=sd_get_cid(&res_long_temp);
-		if(errorstatus!=SD_OK) return errorstatus;
-	}
+	/*!< Send CMD2 to get CID ,and the card will be in Identification State. */
+	errorstatus=sd_get_cid(&csdtemp);
+	if(errorstatus!=SD_OK) return errorstatus;
 	
-	/*send CMD3 to get a new RCA,and card state changes to the Stand-by State */
-	if(SD_CardInfo.sd_version==SD_20_HC || SD_CardInfo.sd_version==SD_20_SC || SD_CardInfo.sd_version==SD_10)
-	{
-		errorstatus=sd_get_rca(&SD_CardInfo.RCA);
-		if(errorstatus!=SD_OK) return errorstatus;
-	}
+	/*get a new RCA,and card state changes to the Stand-by State */
+	errorstatus=sd_get_rca(&SD_CardInfo.RCA);
+	if(errorstatus!=SD_OK) return errorstatus;
 	
 	/*get CSD*/
+	errorstatus=sd_get_csd(SD_CardInfo.RCA,&csdtemp);
+	if(errorstatus!=SD_OK) return errorstatus;
 	
-	/*send CMD7,CMD7 is used to select one card and put it into the Transfer State*/
+	/*get CSR,send ACMD51*/
+	
+	
+	/* send CMD7,CMD7 is used to select one card and put it into the Transfer State
+	 * the card is selected by its own relative address and gets deselected by any other address;
+	 */
+	errorstatus=sd_select_card(SD_CardInfo.RCA);
+	if(errorstatus!=SD_OK) return errorstatus;
 	
 	/*上电识别，卡初始化都完成后，进入数据传输模式，提高读写速度,并开启4bits模式*/
+	errorstatus=sdio_bus_width(SD_CardInfo.RCA,SDIO_BUS_4BIT);
+	if(errorstatus!=SD_OK) return errorstatus;
 	
-	errorstatus
+	return SD_OK;
 }
 
 
