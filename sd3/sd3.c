@@ -1,3 +1,14 @@
+/* API:
+ * sd_init(void)                            :)
+ * sd_write_sector(addr,buffer)             :)
+ * sd_read_sector(addr,buffer)              :(
+ * sd_write_nsector(nsec,addr,buffer)       :(
+ * sd_write_nsector(nsec,addr,buffer)       :(
+ * sd_erasc_nsector(addr_sta,addr_end)      :(
+ * sd_get_total_sec(void)                   :(
+ */
+
+ 
  #include "sd3.h"
  
  /*-------------------------------public variable--------------------------------------*/
@@ -100,14 +111,8 @@ SD_Error sd_get_resp7(u32 * res7)
 }
 
 /*---------------------------------------------------------------------------*/
-/*
- * the struct SD_CardInfo initialization
- */
-void sd_info_init(_SD_CardInfo * pSD_CardInfo)
-{
-	
-}
 
+/* user define*/
 SD_Error sdio_handware_init(void)
 {
 	/*初始化SDIO的引脚、时钟、DMA等硬件*/
@@ -115,9 +120,26 @@ SD_Error sdio_handware_init(void)
 	/*!< SDIO_CK for initialization should not exceed 400 KHz */
 }
 
-/* @arg rca: the card RCA
- * @arg SDIO_BUS_4BIT: 4-bit data transfer
- * @arg SDIO_BUS_1BIT: 1-bit data transfer (sd card default)
+/** user define
+ * @brief 配置SDIO硬件，发送512Bytes到SD卡，POLLING or DMA。
+ * @param buffer
+ * @return 
+ */
+SD_Error sdio_send_512B(u8 * buffer)
+{
+	/*配置发送寄存器*/
+	
+	/*发送数据*/
+	
+	/*根据SDIO状态寄存器，检查是否完成发送*/
+}
+
+/**
+ * The default bus width after power up or GO_IDLE (CMD0) is 1 bit bus width
+ * In order to change the bus width two conditions shall be met: a) The card is in 'tran state',b) The card is not locked.
+ * @param rca: the card RCA
+ * @param SDIO_BUS_4BIT: 4-bit data transfer
+ * @param SDIO_BUS_1BIT: 1-bit data transfer (sd card default)
  */
 SD_Error sdio_bus_width(u32 rca,u32 bus_width)
 {
@@ -234,11 +256,14 @@ SD_Error sd_get_rca(u32 * rca)
 	return SD_OK;
 }
 
-SD_Error sd_get_csd(u32 rcd,u32 * csd)
+/*
+ * Addressed card sends its card-specific data (CSD) on the CMD line.
+ */
+SD_Error sd_get_csd(u32 rca,u32 * csd)
 {
 	SD_Error errorstatus;
 	
-	errorstatus=sd_send_cmd(CMD9,(u32)(rcd<<16),RESP2);
+	errorstatus=sd_send_cmd(CMD9,(u32)(rca<<16),RESP2);
 	if(errorstatus!=SD_OK) return errorstatus;									/*check cmd9 send success*/
 	errorstatus=sd_get_resp2(csd);
 	if(errorstatus!=SD_OK) return errorstatus;
@@ -246,6 +271,54 @@ SD_Error sd_get_csd(u32 rcd,u32 * csd)
 	return SD_OK;
 }
 
+/* 
+ * Call the function shall on transfer status,the SCR is sent on DAT Line.
+ * The size of SCR register is 64 bits.
+ */
+SD_Error sd_get_scr(u32 rca,u32 * scr)
+{
+	SD_Error errorstatus;
+	
+	errorstatus=sd_send_cmd(CMD55,(u32)(rca),RESP1);
+	if(errorstatus!=SD_OK) return errorstatus;
+	errorstatus=sd_get_resp1(src);												/*临时用作TEMP*/
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	errorstatus=sd_send_cmd(CMD51,0x00,RESP1);
+	if(errorstatus!=SD_OK) return errorstatus;
+	errorstatus=sd_get_resp1(src);												/*临时用作TEMP*/
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	/*从DAT Line接收8byte数据*/
+	#error "user define"
+	
+	return SD_OK;
+}
+
+/**
+ * @brief The host may poll the status of the card with a SEND_STATUS command (CMD13) at any time,
+ *        and the card will respond with its status.
+ * @param r1:
+ * @return 
+ */
+SD_Error sd_get_status(u32 * r1)
+{
+	
+}
+
+/*
+ * the struct SD_CardInfo initialization
+ */
+void sd_info_init(_SD_CardInfo * pSD_CardInfo)
+{
+	
+}
+
+/**
+ * Send CMD7 and RCA of the card,will select the card to transfer status.
+ * If the card get CMD7 with un-matched RCA,the card is deselected,and go out transfer status.
+ * If @param rca=0x00,all cards are deselected.
+ */
 SD_Error sd_select_card(u32 rca)
 {
 	SD_Error errorstatus;
@@ -258,6 +331,7 @@ SD_Error sd_select_card(u32 rca)
 	
 	return SD_OK;
 }
+
 /*
  * 
  */
@@ -274,7 +348,7 @@ SD_Error sd_init(void)
 	if(errorstatus!=SD_OK) return errorstatus;
 	
 	/*!< Send CMD2 to get CID ,and the card will be in Identification State. */
-	errorstatus=sd_get_cid(&csdtemp);
+	errorstatus=sd_get_cid(&cidtemp);
 	if(errorstatus!=SD_OK) return errorstatus;
 	
 	/*get a new RCA,and card state changes to the Stand-by State */
@@ -284,9 +358,6 @@ SD_Error sd_init(void)
 	/*get CSD*/
 	errorstatus=sd_get_csd(SD_CardInfo.RCA,&csdtemp);
 	if(errorstatus!=SD_OK) return errorstatus;
-	
-	/*get CSR,send ACMD51*/
-	
 	
 	/* send CMD7,CMD7 is used to select one card and put it into the Transfer State
 	 * the card is selected by its own relative address and gets deselected by any other address;
@@ -298,9 +369,44 @@ SD_Error sd_init(void)
 	errorstatus=sdio_bus_width(SD_CardInfo.RCA,SDIO_BUS_4BIT);
 	if(errorstatus!=SD_OK) return errorstatus;
 	
+	/*if the card is SD_10 or SD_SC,set the BLOCKLEN=512Bytes.*/
+	if(SD_CardInfo.sd_version==SD_20_SC || SD_CardInfo.sd_version==SD_10)
+	{
+		errorstatus=sd_send_cmd(CMD16,0x200UL,RESP1);
+		if(errorstatus!=SD_OK) return errorstatus;
+		errorstatus=sd_get_resp1(&res_short_temp);
+		if(errorstatus!=SD_OK) return errorstatus;	
+	}
+
+	
+	/*get CSR,send ACMD51*/
+	errorstatus=sd_get_scr();
+
 	return SD_OK;
 }
 
-
+/**
+ * Data address( @param addr) is in byte units in a Standard Capacity SD Memory Card,
+ * and in block (512 Byte) units in a High Capacity SD Memory Card.
+ * @param 'addr' is in sector(512 Byte) units for SD_HC and SD_SC
+ */
+SD_Error sd_write_sector(u32 addr,u8 * buffer)
+{
+	SD_Error errorstatus;
+	u32 sd_status=0;
+	
+	if(SD_CardInfo.sd_version==SD_20_SC || SD_CardInfo.sd_version==SD_10) addr <<=9;
+	
+	errorstatus=sd_send_cmd(CMD24,addr,RESP1);
+	if(errorstatus!=SD_OK) return errorstatus;
+	errorstatus=sd_get_resp1(&sd_status);
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	/*配置SDIO寄存器，使之发送buffer起始的512Byte,并对SDIO发送情况检测错误*/
+	errorstatus=sdio_send_512B(buffer);
+	if(errorstatus!=SD_OK) return errorstatus;
+	
+	return SD_OK;
+}
 
 

@@ -59,8 +59,8 @@ typedef enum
 } SD_Error;
 
 /** 
-  * @brief  SDIO Transfer state  
-  */   
+ * @brief  SDIO Transfer state  
+ */   
 typedef enum
 {
   SD_TRANSFER_OK  = 0,
@@ -125,6 +125,8 @@ typedef struct
 #define CMD7
 #define CMD8															/* SEND_IF_COND */
 #define CMD9
+#define CMD16															/* SET_BLOCKLEN */
+#define CMD24															/* WRITE_SINGLE_BLOCK*/
 #define CMD41
 #define CMD55
 
