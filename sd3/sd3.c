@@ -301,9 +301,40 @@ SD_Error sd_get_scr(u32 rca,u32 * scr)
  * @param r1:
  * @return 
  */
-SD_Error sd_get_status(u32 * r1)
+SD_Error sd_get_status(u32 * r1,u32 rca)
 {
+	SD_Error errorstatus;
+	SDCardState cardstate;
+	u32 * temp;
 	
+	if(r1==NULL)																/*r1 = NULL,will send CMD13 to get the card status*/
+	{
+		r1=temp;
+		errorstatus=sd_send_cmd(CMD13,(u32)rca<<16,RESP1);
+		if(errorstatus!=SD_OK) return errorstatus;
+		errorstatus=sd_get_resp1(&r1);
+		if(errorstatus!=SD_OK) return errorstatus;
+	}
+	/*r1 != NULL,mean r1=card_status*/
+	
+	if(r1>>16 !=0)																/*if r1 high 16bit !=0,check error*/
+	{
+		
+	}
+/*	cardstate=(SDCardState)((resp1 >> 9) & 0x0F);
+	if (cardstate == SD_CARD_TRANSFER)
+	{
+		return(SD_TRANSFER_OK);
+	}
+	else if(cardstate == SD_CARD_ERROR)
+	{
+		return (SD_TRANSFER_ERROR);
+	}
+	else
+	{
+		return(SD_TRANSFER_BUSY);
+	}
+*/
 }
 
 /*

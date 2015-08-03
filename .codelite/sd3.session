@@ -5,8 +5,8 @@
   <TabInfoArray Name="TabInfoArray">
     <TabInfo>
       <wxString Value="D:\CodeLiteWork\sd3\sd3\sd3.c" Name="FileName"/>
-      <int Value="0" Name="FirstVisibleLine"/>
-      <int Value="15" Name="CurrentLine"/>
+      <int Value="95" Name="FirstVisibleLine"/>
+      <int Value="306" Name="CurrentLine"/>
       <wxArrayString Name="Bookmarks"/>
       <IntVector Name="CollapsedFolds">
         <IntVectorItem Value="18"/>
@@ -37,14 +37,15 @@
         <IntVectorItem Value="244"/>
         <IntVectorItem Value="262"/>
         <IntVectorItem Value="278"/>
-        <IntVectorItem Value="316"/>
-        <IntVectorItem Value="322"/>
+        <IntVectorItem Value="323"/>
+        <IntVectorItem Value="347"/>
+        <IntVectorItem Value="353"/>
       </IntVector>
     </TabInfo>
     <TabInfo>
       <wxString Value="D:\CodeLiteWork\sd3\sd3\sd3.h" Name="FileName"/>
-      <int Value="0" Name="FirstVisibleLine"/>
-      <int Value="47" Name="CurrentLine"/>
+      <int Value="68" Name="FirstVisibleLine"/>
+      <int Value="78" Name="CurrentLine"/>
       <wxArrayString Name="Bookmarks"/>
       <IntVector Name="CollapsedFolds"/>
     </TabInfo>

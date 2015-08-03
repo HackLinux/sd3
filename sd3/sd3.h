@@ -125,6 +125,7 @@ typedef struct
 #define CMD7
 #define CMD8															/* SEND_IF_COND */
 #define CMD9
+#define CMD13
 #define CMD16															/* SET_BLOCKLEN */
 #define CMD24															/* WRITE_SINGLE_BLOCK*/
 #define CMD41
