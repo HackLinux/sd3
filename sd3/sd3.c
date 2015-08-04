@@ -317,9 +317,12 @@ SD_Error sd_get_status(u32 * r1,u32 rca)
 	}
 	/*r1 != NULL,mean r1=card_status*/
 	
-	if(r1>>16 !=0)																/*if r1 high 16bit !=0,check error*/
+	if(r1>>15 !=0)																/*if r1 high 16bit !=0,check error*/
 	{
-		
+		if(r1 & BIT23)	return SD_COM_CRC_FAILED;
+		else if(r1 & BIT29) return SD_BLOCK_LEN_ERR;
+		else if(r1 & BIT26) return SD_WRITE_PROT_VIOLATION;
+		else if(r1 & BIT30) return SD_ADDR_MISALIGNED;
 	}
 /*	cardstate=(SDCardState)((resp1 >> 9) & 0x0F);
 	if (cardstate == SD_CARD_TRANSFER)
