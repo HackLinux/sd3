@@ -250,10 +250,26 @@ SD_Error sd_get_rca(u32 * rca)
 	errorstatus=sd_get_resp6(rca);												/*返回值包括RCA和card status*/
 	if(errorstatus!=SD_OK) return errorstatus;
 	/*-----------check the card status----------*/
-	
-	
-	*rca >>= 16;																/*保留RCA*/
-	return SD_OK;
+	if (0 == (*rca & (SD_R6_GENERAL_UNKNOWN_ERROR | SD_R6_ILLEGAL_CMD | SD_R6_COM_CRC_FAILED)))
+	{
+		*rca >>= 16;															/*保留RCA*/
+		return SD_OK;
+	}
+
+	if (*rca & SD_R6_GENERAL_UNKNOWN_ERROR)
+	{
+		return(SD_GENERAL_UNKNOWN_ERROR);
+	}
+
+	if (*rca & SD_R6_ILLEGAL_CMD)
+	{
+		return(SD_ILLEGAL_CMD);
+	}
+
+	if (*rca & SD_R6_COM_CRC_FAILED)
+	{
+		return(SD_COM_CRC_FAILED);
+	}
 }
 
 /*
@@ -301,7 +317,7 @@ SD_Error sd_get_scr(u32 rca,u32 * scr)
  * @param r1:
  * @return 
  */
-SD_Error sd_get_status(u32 * r1,u32 rca)
+SD_Error sd_get_err(u32 * r1,u32 rca)
 {
 	SD_Error errorstatus;
 	SDCardState cardstate;
@@ -312,19 +328,56 @@ SD_Error sd_get_status(u32 * r1,u32 rca)
 		r1=temp;
 		errorstatus=sd_send_cmd(CMD13,(u32)rca<<16,RESP1);
 		if(errorstatus!=SD_OK) return errorstatus;
-		errorstatus=sd_get_resp1(&r1);
+		errorstatus=sd_get_resp1(r1);
 		if(errorstatus!=SD_OK) return errorstatus;
 	}
-	/*r1 != NULL,mean r1=card_status*/
+	/*  r1 != NULL,mean r1=card_status  */
 	
-	if(r1>>15 !=0)																/*if r1 high 16bit !=0,check error*/
+	if ((*r1 & SD_OCR_ERRORBITS) != 0)
 	{
-		if(r1 & BIT23)	return SD_COM_CRC_FAILED;
-		else if(r1 & BIT29) return SD_BLOCK_LEN_ERR;
-		else if(r1 & BIT26) return SD_WRITE_PROT_VIOLATION;
-		else if(r1 & BIT30) return SD_ADDR_MISALIGNED;
+		if (*r1 & SD_OCR_ADDR_OUT_OF_RANGE)		return(SD_ADDR_OUT_OF_RANGE);
+		if (*r1 & SD_OCR_ADDR_MISALIGNED)		return(SD_ADDR_MISALIGNED);
+		if (*r1 & SD_OCR_BLOCK_LEN_ERR)			return(SD_BLOCK_LEN_ERR);
+		if (*r1 & SD_OCR_ERASE_SEQ_ERR)			return(SD_ERASE_SEQ_ERR);
+		if (*r1 & SD_OCR_BAD_ERASE_PARAM)		return(SD_BAD_ERASE_PARAM);
+		if (*r1 & SD_OCR_WRITE_PROT_VIOLATION)	return(SD_WRITE_PROT_VIOLATION);
+		if (*r1 & SD_OCR_LOCK_UNLOCK_FAILED)	return(SD_LOCK_UNLOCK_FAILED);
+		if (*r1 & SD_OCR_COM_CRC_FAILED)		return(SD_COM_CRC_FAILED);
+		if (*r1 & SD_OCR_ILLEGAL_CMD)			return(SD_ILLEGAL_CMD);
+		if (*r1 & SD_OCR_CARD_ECC_FAILED)		return(SD_CARD_ECC_FAILED);
+		if (*r1 & SD_OCR_CC_ERROR)				return(SD_CC_ERROR);
+		if (*r1 & SD_OCR_GENERAL_UNKNOWN_ERROR)	return(SD_GENERAL_UNKNOWN_ERROR);
+		if (*r1 & SD_OCR_STREAM_READ_UNDERRUN)	return(SD_STREAM_READ_UNDERRUN);
+		if (*r1 & SD_OCR_STREAM_WRITE_OVERRUN)	return(SD_STREAM_WRITE_OVERRUN);
+		if (*r1 & SD_OCR_CID_CSD_OVERWRIETE)	return(SD_CID_CSD_OVERWRITE);
+		if (*r1 & SD_OCR_WP_ERASE_SKIP) 		return(SD_WP_ERASE_SKIP);
+		if (*r1 & SD_OCR_CARD_ECC_DISABLED) 	return(SD_CARD_ECC_DISABLED);
+		if (*r1 & SD_OCR_ERASE_RESET) 			return(SD_ERASE_RESET);
+		if (*r1 & SD_OCR_AKE_SEQ_ERROR) 		return(SD_AKE_SEQ_ERROR);
 	}
-/*	cardstate=(SDCardState)((resp1 >> 9) & 0x0F);
+	else return SD_OK;
+}
+
+/**
+ * @brief 
+ * @param pSD_CardInfo
+ */
+SDTransferState sd_get_status(u32 * r1,u32 rca)
+{
+	SD_Error errorstatus;
+	SDCardState cardstate;
+	u32 * temp;
+	
+	if(r1==NULL)																/*r1 = NULL,will send CMD13 to get the card status*/
+	{
+		r1=temp;
+		errorstatus=sd_send_cmd(CMD13,(u32)rca<<16,RESP1);
+		if(errorstatus!=SD_OK) return SD_TRANSFER_ERROR;						/*不和谐之处*/
+		errorstatus=sd_get_resp1(&r1);
+		if(errorstatus!=SD_OK) return SD_TRANSFER_ERROR;
+	}
+	/*r1 != NULL,mean r1=card_status*/
+	cardstate=(SDCardState)((*r1 >> 9) & 0x0F);
 	if (cardstate == SD_CARD_TRANSFER)
 	{
 		return(SD_TRANSFER_OK);
@@ -337,7 +390,6 @@ SD_Error sd_get_status(u32 * r1,u32 rca)
 	{
 		return(SD_TRANSFER_BUSY);
 	}
-*/
 }
 
 /*
@@ -436,7 +488,7 @@ SD_Error sd_write_sector(u32 addr,u8 * buffer)
 	errorstatus=sd_get_resp1(&sd_status);
 	if(errorstatus!=SD_OK) return errorstatus;
 	
-	/*配置SDIO寄存器，使之发送buffer起始的512Byte,并对SDIO发送情况检测错误*/
+	/*配置SDIO寄存器，使之发送buffer起始的512Byte,并对‘SDIO发送情况’检测错误*/
 	errorstatus=sdio_send_512B(buffer);
 	if(errorstatus!=SD_OK) return errorstatus;
 	
