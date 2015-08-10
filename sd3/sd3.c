@@ -3,7 +3,7 @@
  * sd_write_sector(addr,buffer)             :)
  * sd_read_sector(addr,buffer)              :(
  * sd_write_nsector(nsec,addr,buffer)       :(
- * sd_write_nsector(nsec,addr,buffer)       :(
+ * sd_read_nsector(nsec,addr,buffer)        :(
  * sd_erasc_nsector(addr_sta,addr_end)      :(
  * sd_get_total_sec(void)                   :(
  */
@@ -73,9 +73,13 @@ inline SD_Error sd_get_resp_long(u32 * res_long)
  */
 SD_Error sd_get_resp1b(u32 * res1b)
 {
-	 /*check busy*/
-	 
-	 return sd_get_resp_short(res1b);
+	u32 cnt=TIMEOUT;
+	 while(cnt--)
+	 {
+		 if(SDIO_CHK_BUSY==SD_NOT_BUSY) break;								/*check busy*/
+	 }
+	 if(cnt==0) return SD_SDIO_FUNCTION_BUSY;
+	 else return sd_get_resp_short(res1b);
 }
  
 /*
@@ -314,6 +318,7 @@ SD_Error sd_get_scr(u32 rca,u32 * scr)
 /**
  * @brief The host may poll the status of the card with a SEND_STATUS command (CMD13) at any time,
  *        and the card will respond with its status.
+ *        方便debug.
  * @param r1:
  * @return 
  */
@@ -378,7 +383,7 @@ SDTransferState sd_get_status(u32 * r1,u32 rca)
 	}
 	/*r1 != NULL,mean r1=card_status*/
 	cardstate=(SDCardState)((*r1 >> 9) & 0x0F);
-	if (cardstate == SD_CARD_TRANSFER)
+	if (cardstate == SD_CARD_TRANSFER)											/*when the card is programming,the status is Programming*/
 	{
 		return(SD_TRANSFER_OK);
 	}
@@ -488,11 +493,26 @@ SD_Error sd_write_sector(u32 addr,u8 * buffer)
 	errorstatus=sd_get_resp1(&sd_status);
 	if(errorstatus!=SD_OK) return errorstatus;
 	
-	/*配置SDIO寄存器，使之发送buffer起始的512Byte,并对‘SDIO发送情况’检测错误*/
+	/*配置SDIO寄存器，使之发送buffer起始的512Byte,等待数据传输结束，并对‘SDIO发送情况’检测错误*/
 	errorstatus=sdio_send_512B(buffer);
 	if(errorstatus!=SD_OK) return errorstatus;
+	
+	/*check sd card status*/
+	#error "select one"
+	while(SDIO_CHK_BUSY==SD_BUSY);
+	while(sd_get_status(NULL,SD_CardInfo.RCA)!=SD_TRANSFER_OK);
 	
 	return SD_OK;
 }
 
+/**
+ * @brief  
+ * @param addr : unit is sector.
+ * @param buffer
+ * @return 
+ */
+SD_Error sd_read_sector(u32 addr,u8 * buffer)
+{
+	
 
+}

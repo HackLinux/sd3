@@ -116,20 +116,6 @@ typedef struct
 /*-------------------------------------#define----------------------------------*/
 #define SD_CHECK_POWER_UP				((uint32_t)0x80000000)			/*ACMD41 response check*/
 #define SD_CHECK_CCS					((uint32_t)0x40000000)			/*ACMD41 response check*/
-/*-----------------------------------sd card cmd--------------------------------*/
-#define CMD0															/* GO_IDLE_STATE */
-#define CMD1															/* SEND_OP_COND (MMC) */
-#define CMD2															/* ALL_SEND_CID */
-#define CMD3															/* SEND_RELATIVE_ADDR */
-#define CMD6
-#define CMD7
-#define CMD8															/* SEND_IF_COND */
-#define CMD9
-#define CMD13
-#define CMD16															/* SET_BLOCKLEN */
-#define CMD24															/* WRITE_SINGLE_BLOCK*/
-#define CMD41
-#define CMD55
 
 /*---------------------------------sd card argument-----------------------------*/
 #define SD_CHECK_PATTERN				((uint32_t)0x000001AA)			/*user define CMD8 argument*/
@@ -139,6 +125,10 @@ typedef struct
 #define SD_R6_GENERAL_UNKNOWN_ERROR     ((uint32_t)0x00002000)
 #define SD_R6_ILLEGAL_CMD               ((uint32_t)0x00004000)
 #define SD_R6_COM_CRC_FAILED            ((uint32_t)0x00008000)
+
+/*------------------------------------sdio bus width----------------------------*/
+#define SDIO_BUS_1BIT					((uint32_t)0x00000000)			/*1-bit data transfer (sd card default)*/
+#define SDIO_BUS_4BIT					((uint32_t)0x00000002)			/*4-bit data transfer*/
 
 /*---------------------Mask for errors Card Status R1 (OCR Register)------------*/
 #define SD_OCR_ADDR_OUT_OF_RANGE        ((uint32_t)0x80000000)
@@ -161,6 +151,22 @@ typedef struct
 #define SD_OCR_ERASE_RESET              ((uint32_t)0x00002000)
 #define SD_OCR_AKE_SEQ_ERROR            ((uint32_t)0x00000008)
 #define SD_OCR_ERRORBITS                ((uint32_t)0xFDFFE008)
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*-----------------------------------sd card cmd--------------------------------*/
+#define CMD0															/* GO_IDLE_STATE */
+#define CMD1															/* SEND_OP_COND (MMC) */
+#define CMD2															/* ALL_SEND_CID */
+#define CMD3															/* SEND_RELATIVE_ADDR */
+#define CMD6
+#define CMD7
+#define CMD8															/* SEND_IF_COND */
+#define CMD9
+#define CMD13
+#define CMD16															/* SET_BLOCKLEN */
+#define CMD24															/* WRITE_SINGLE_BLOCK*/
+#define CMD41
+#define CMD55
 
 /*-------------------------------sd card response type--------------------------*/
 #define NO_RESP
@@ -171,14 +177,17 @@ typedef struct
 #define RESP6
 #define RESP7
 
-/*------------------------------------sdio bus width----------------------------*/
-#define SDIO_BUS_1BIT					((uint32_t)0x00000000)			/*1-bit data transfer (sd card default)*/
-#define SDIO_BUS_4BIT					((uint32_t)0x00000002)			/*4-bit data transfer*/
+/*------------------------------------const data--------------------------------*/
+#define TIMEOUT							((uint32_t)10000)				/*循环查询的次数*/
 
 /*------------------------------------sdio config-------------------------------*/
 #define SET_SDIO_BUS_WIDTH_1BIT			do{/*set sdio bus-width to 1bit*/}while(0)
 #define SET_SDIO_BUS_WIDTH_4BIT			do{/*set sdio bus-width to 4bit*/}while(0)
-
+	
+/*------------------------------------check sd busy-----------------------------*/
+#define SDIO_CHK_BUSY													/*read register or read DAT0 value,user define */ 
+#define SD_BUSY							((uint32_t)0x00000000)			/*user define*/
+#define SD_NOT_BUSY						!SD_BUSY
 
 /*-------------------------------private functions--------------------------------*/
 SD_Error sd_send_cmd(u32 cmd,u32 arg,u32 restype);
